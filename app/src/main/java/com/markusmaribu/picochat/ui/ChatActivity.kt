@@ -203,7 +203,11 @@ class ChatActivity : AppCompatActivity() {
             binding.chatRecyclerView.post { updateScrollBarVisibleRange() }
             presentationChatAdapter?.let { pAdapter ->
                 pAdapter.addMessage(msg)
-                chatHistoryPresentation?.chatRecyclerView?.scrollToPosition(pAdapter.itemCount - 1)
+                chatHistoryPresentation?.let { pres ->
+                    pres.chatRecyclerView.scrollToPosition(pAdapter.itemCount - 1)
+                    pres.scrollBarVisualizer.addMessage(msg)
+                    pres.chatRecyclerView.post { updatePresentationScrollBarVisibleRange() }
+                }
             }
 
             if (msg is ChatMessage.SystemMessage) {
@@ -321,8 +325,11 @@ class ChatActivity : AppCompatActivity() {
         binding.chatRecyclerView.post { updateScrollBarVisibleRange() }
         presentationChatAdapter?.let { pAdapter ->
             pAdapter.setMessages(ChatRepository.getAllMessages())
-            if (pAdapter.itemCount > 0) {
-                chatHistoryPresentation?.chatRecyclerView?.scrollToPosition(pAdapter.itemCount - 1)
+            chatHistoryPresentation?.let { pres ->
+                pres.scrollBarVisualizer.setMessages(ChatRepository.getAllMessages())
+                if (pAdapter.itemCount > 0) {
+                    pres.chatRecyclerView.scrollToPosition(pAdapter.itemCount - 1)
+                }
             }
         }
         acquireWakeLock()
@@ -673,7 +680,7 @@ class ChatActivity : AppCompatActivity() {
         val panelH = (scaleLayout.refH * 0.40f).toInt()
 
         val container = FrameLayout(this).apply {
-            elevation = 20 * density
+            elevation = 6 * density
             visibility = View.GONE
             isClickable = true
             setOnTouchListener { _, _ -> true }
@@ -878,9 +885,11 @@ class ChatActivity : AppCompatActivity() {
         isLeaveDialogShowing = true
         leaveDialogFocusedButton = 0
 
+        val target = activeCanvasScaleLayout()
+
         if (leaveDialogContainer == null) {
             leaveDialogContainer = buildLeaveDialog()
-            binding.bottomScreen.addView(leaveDialogContainer)
+            target.addView(leaveDialogContainer)
         }
 
         val container = leaveDialogContainer!!
@@ -889,7 +898,7 @@ class ChatActivity : AppCompatActivity() {
 
         panel.post {
             updateLeaveDialogFocus(animate = false)
-            val offScreenY = (binding.bottomScreen.refH / 2f + panel.height / 2f)
+            val offScreenY = (target.refH / 2f + panel.height / 2f)
             panel.translationY = offScreenY
             panel.animate()
                 .translationY(0f)
@@ -905,7 +914,8 @@ class ChatActivity : AppCompatActivity() {
         if (!isLeaveDialogShowing) return
         val panel = leaveDialogPanel ?: return
 
-        val offScreenY = (binding.bottomScreen.refH / 2f + panel.height / 2f)
+        val target = activeCanvasScaleLayout()
+        val offScreenY = (target.refH / 2f + panel.height / 2f)
         panel.animate()
             .translationY(offScreenY)
             .setDuration(200)
@@ -1060,6 +1070,15 @@ class ChatActivity : AppCompatActivity() {
         binding.scrollBarVisualizer.setVisibleRange(first, last)
     }
 
+    private fun updatePresentationScrollBarVisibleRange() {
+        val pres = chatHistoryPresentation ?: return
+        val lm = pres.chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
+        val first = lm.findFirstVisibleItemPosition()
+        val last = lm.findLastVisibleItemPosition()
+        if (first == RecyclerView.NO_POSITION) return
+        pres.scrollBarVisualizer.setVisibleRange(first, last)
+    }
+
     private fun sendMessage() {
         if (bv.canvas.hasDrawing()) {
             val bits = bv.canvas.exportBits()
@@ -1158,6 +1177,7 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun onSecondaryDisplayConnected(display: Display, existingCanvasBits: ByteArray? = null, existingRainbowBits: ByteArray? = null) {
+        clearLeaveDialog()
         val canvasBits = existingCanvasBits ?: bv.canvas.exportBits()
         val rainbowBits = existingRainbowBits ?: bv.canvas.exportRainbowBits()
         val hasContent = existingCanvasBits != null || bv.canvas.hasDrawing()
@@ -1188,6 +1208,17 @@ class ChatActivity : AppCompatActivity() {
             })
             presentationChatAdapter = pAdapter
             applyStripedChatBackground(pres.chatHistoryBackground)
+
+            pres.signalContainer.visibility = View.VISIBLE
+            pres.roomLetterContainer.visibility = View.VISIBLE
+            pres.roomLetter.text = room.name
+            pres.scrollBarVisualizer.includeBanner = true
+            pres.scrollBarVisualizer.setMessages(ChatRepository.getAllMessages())
+            pres.chatRecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    updatePresentationScrollBarVisibleRange()
+                }
+            })
 
             bv = bottomViewsFromBinding()
             wireBottomScreen()
@@ -1221,6 +1252,7 @@ class ChatActivity : AppCompatActivity() {
     private fun reconnectSecondaryDisplay() {
         val dm = displayManager ?: return
         val secondary = dm.displays.firstOrNull { it.displayId != Display.DEFAULT_DISPLAY }
+        clearLeaveDialog()
         val canvasBits = if (bv.canvas.hasDrawing()) bv.canvas.exportBits() else null
         val rainbowBits = if (canvasBits != null) bv.canvas.exportRainbowBits() else null
 
@@ -1294,7 +1326,31 @@ class ChatActivity : AppCompatActivity() {
         else -> binding.bottomOverlay
     }
 
+    private fun activeCanvasScaleLayout(): ScaleLayout =
+        if (isSecondaryDisplayActive && !viewsSwapped)
+            canvasPresentation?.scaleLayout ?: binding.bottomScreen
+        else
+            binding.bottomScreen
+
+    private fun clearLeaveDialog() {
+        leaveDialogHighlightAnimator?.cancel()
+        leaveDialogHighlightAnimator = null
+        leaveDialogContainer?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        leaveDialogContainer = null
+        leaveDialogPanel = null
+        leaveDialogHighlight = null
+        isLeaveDialogShowing = false
+    }
+
     private fun onSecondaryDisplayDisconnected() {
+        clearLeaveDialog()
+
+        if (isLeaving) {
+            dismissAllPresentations()
+            isSecondaryDisplayActive = false
+            return
+        }
+
         val hasCanvas = (canvasPresentation != null || chatHistoryPresentation != null) && bv.canvas.hasDrawing()
         val canvasBits = if (hasCanvas) bv.canvas.exportBits() else null
         val rainbowBits = if (hasCanvas) bv.canvas.exportRainbowBits() else null
@@ -1479,12 +1535,42 @@ class ChatActivity : AppCompatActivity() {
         overlay?.visibility = View.VISIBLE
 
         if (isSecondaryDisplayActive && viewsSwapped) {
-            overlay?.animate()
-                ?.setListener(null)
-                ?.alpha(0f)
-                ?.setDuration(250)
-                ?.withEndAction { overlay.visibility = View.GONE }
-                ?.start()
+            val pres = chatHistoryPresentation
+            if (pres != null) {
+                pres.signalContainer.doOnLayout {
+                    pres.signalContainer.translationY = -pres.signalContainer.height.toFloat() - pres.signalContainer.top
+                    pres.roomLetterContainer.translationY = (pres.topSidebar.height - pres.roomLetterContainer.top).toFloat()
+
+                    val fadeOut = ObjectAnimator.ofFloat(overlay ?: return@doOnLayout, View.ALPHA, 1f, 0f).apply {
+                        duration = 250
+                    }
+                    val signalSlide = ObjectAnimator.ofFloat(pres.signalContainer, View.TRANSLATION_Y, pres.signalContainer.translationY, 0f).apply {
+                        duration = 300
+                        interpolator = DecelerateInterpolator()
+                    }
+                    val roomSlide = ObjectAnimator.ofFloat(pres.roomLetterContainer, View.TRANSLATION_Y, pres.roomLetterContainer.translationY, 0f).apply {
+                        duration = 300
+                        interpolator = DecelerateInterpolator()
+                    }
+
+                    AnimatorSet().apply {
+                        playTogether(fadeOut, signalSlide, roomSlide)
+                        addListener(object : AnimatorListenerAdapter() {
+                            override fun onAnimationEnd(animation: Animator) {
+                                overlay.visibility = View.GONE
+                            }
+                        })
+                        start()
+                    }
+                }
+            } else {
+                overlay?.animate()
+                    ?.setListener(null)
+                    ?.alpha(0f)
+                    ?.setDuration(250)
+                    ?.withEndAction { overlay.visibility = View.GONE }
+                    ?.start()
+            }
             return
         }
 
@@ -1551,7 +1637,32 @@ class ChatActivity : AppCompatActivity() {
         }
 
         if (isSecondaryDisplayActive && viewsSwapped) {
-            if (overlay != null) {
+            val pres = chatHistoryPresentation
+            if (pres != null && overlay != null) {
+                val fadeIn = ObjectAnimator.ofFloat(overlay, View.ALPHA, 0f, 1f).apply {
+                    duration = 200
+                }
+                val signalSlide = ObjectAnimator.ofFloat(
+                    pres.signalContainer, View.TRANSLATION_Y, 0f,
+                    -pres.signalContainer.height.toFloat() - pres.signalContainer.top
+                ).apply {
+                    duration = 200
+                    interpolator = DecelerateInterpolator()
+                }
+                val roomSlide = ObjectAnimator.ofFloat(
+                    pres.roomLetterContainer, View.TRANSLATION_Y, 0f,
+                    (pres.topSidebar.height - pres.roomLetterContainer.top).toFloat()
+                ).apply {
+                    duration = 200
+                    interpolator = DecelerateInterpolator()
+                }
+
+                AnimatorSet().apply {
+                    playTogether(fadeIn, signalSlide, roomSlide)
+                    addListener(finishAction)
+                    start()
+                }
+            } else if (overlay != null) {
                 overlay.animate()
                     .setListener(null)
                     .alpha(1f)
@@ -1803,6 +1914,17 @@ class ChatActivity : AppCompatActivity() {
             binding.signalIcon.setColorFilter(0xFF606060.toInt())
         } else {
             binding.signalIcon.clearColorFilter()
+        }
+
+        chatHistoryPresentation?.let { pres ->
+            pres.signalLineTop.setBackgroundColor(lineColor)
+            pres.signalLineBottom.setBackgroundColor(lineColor)
+            pres.signalIcon.setImageResource(iconRes)
+            if (level == SignalLevel.NONE) {
+                pres.signalIcon.setColorFilter(0xFF606060.toInt())
+            } else {
+                pres.signalIcon.clearColorFilter()
+            }
         }
     }
 

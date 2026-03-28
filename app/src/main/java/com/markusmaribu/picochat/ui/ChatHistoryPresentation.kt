@@ -12,6 +12,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.widget.ImageView
+import android.widget.TextView
 import android.window.OnBackInvokedDispatcher
 import androidx.recyclerview.widget.RecyclerView
 import com.markusmaribu.picochat.R
@@ -25,9 +27,19 @@ class ChatHistoryPresentation(
     private val activity: Activity? = outerContext as? Activity
     var onBackPressedCallback: (() -> Unit)? = null
 
-    lateinit var chatRecyclerView: RecyclerView  private set
-    lateinit var chatHistoryBackground: View     private set
-    lateinit var overlay: View                   private set
+    lateinit var chatRecyclerView: RecyclerView       private set
+    lateinit var chatHistoryBackground: View          private set
+    lateinit var overlay: View                        private set
+    lateinit var signalContainer: View                  private set
+    lateinit var signalLineTop: View                   private set
+    lateinit var signalLineBottom: View                 private set
+    lateinit var signalIcon: ImageView                 private set
+    lateinit var scrollBarVisualizer: ScrollBarVisualizerView  private set
+    lateinit var signalSeparator: View                  private set
+    lateinit var roomLetterSeparator: View              private set
+    lateinit var roomLetterContainer: View              private set
+    lateinit var roomLetter: TextView                  private set
+    lateinit var topSidebar: View                      private set
     var scaleLayout: ScaleLayout? = null
         private set
 
@@ -68,6 +80,16 @@ class ChatHistoryPresentation(
         chatRecyclerView = view.findViewById(R.id.chatRecyclerView)
         chatHistoryBackground = view.findViewById(R.id.chatHistoryBackground)
         overlay = view.findViewById(R.id.presentationOverlay)
+        topSidebar = view.findViewById(R.id.topSidebar)
+        signalContainer = view.findViewById(R.id.signalContainer)
+        signalLineTop = view.findViewById(R.id.signalLineTop)
+        signalLineBottom = view.findViewById(R.id.signalLineBottom)
+        signalIcon = view.findViewById(R.id.signalIcon)
+        scrollBarVisualizer = view.findViewById(R.id.scrollBarVisualizer)
+        signalSeparator = view.findViewById(R.id.signalSeparator)
+        roomLetterSeparator = view.findViewById(R.id.roomLetterSeparator)
+        roomLetterContainer = view.findViewById(R.id.roomLetterContainer)
+        roomLetter = view.findViewById(R.id.roomLetter)
     }
 
     @Deprecated("Deprecated in Java")

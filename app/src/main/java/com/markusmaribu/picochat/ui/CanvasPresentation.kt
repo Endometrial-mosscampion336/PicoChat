@@ -46,6 +46,7 @@ class CanvasPresentation(
     lateinit var btnKbEmoji: View                   private set
     lateinit var peerNamesContainer: LinearLayout   private set
     lateinit var overlay: View                      private set
+    lateinit var scaleLayout: ScaleLayout            private set
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -68,17 +69,16 @@ class CanvasPresentation(
         setContentView(view)
         view.clearFocusability()
 
+        scaleLayout = (view as ViewGroup).getChildAt(0) as ScaleLayout
+
         val isActivityLandscape = activity?.resources?.configuration?.orientation == Configuration.ORIENTATION_LANDSCAPE
         val isPresLandscape = getContext().resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
         if (isActivityLandscape != isPresLandscape) {
-            val scaleLayout = (view as? ViewGroup)?.getChildAt(0) as? ScaleLayout
-            if (scaleLayout != null) {
-                @Suppress("DEPRECATION")
-                val mainRot = activity?.windowManager?.defaultDisplay?.rotation ?: 0
-                val degrees = mainRot * 90
-                scaleLayout.contentRotation = if (degrees == 0 && isActivityLandscape) 90 else degrees
-            }
+            @Suppress("DEPRECATION")
+            val mainRot = activity?.windowManager?.defaultDisplay?.rotation ?: 0
+            val degrees = mainRot * 90
+            scaleLayout.contentRotation = if (degrees == 0 && isActivityLandscape) 90 else degrees
         }
 
         pictoCanvas   = view.findViewById(R.id.pictoCanvas)

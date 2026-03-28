@@ -401,6 +401,8 @@
             android:layout_height="match_parent"
             android:alpha="0"
             android:background="@color/ds_gray_stripe"
+            android:elevation="10dp"
+            android:outlineProvider="none"
             android:visibility="gone" />
 
     </com.markusmaribu.picochat.ui.ScaleLayout>

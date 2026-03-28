@@ -105,7 +105,11 @@ class OnlineRoomSelectionActivity : AppCompatActivity() {
             binding.chatRecyclerView.post { updateScrollBarVisibleRange() }
             presentationChatAdapter?.let { adapter ->
                 adapter.addMessage(msg)
-                chatHistoryPresentation?.chatRecyclerView?.scrollToPosition(adapter.itemCount - 1)
+                chatHistoryPresentation?.let { pres ->
+                    pres.chatRecyclerView.scrollToPosition(adapter.itemCount - 1)
+                    pres.scrollBarVisualizer.addMessage(msg)
+                    pres.chatRecyclerView.post { updatePresentationScrollBarVisibleRange() }
+                }
             }
         }
     }
@@ -406,8 +410,11 @@ class OnlineRoomSelectionActivity : AppCompatActivity() {
         binding.chatRecyclerView.post { updateScrollBarVisibleRange() }
         presentationChatAdapter?.let { adapter ->
             adapter.setMessages(ChatRepository.getAllMessages())
-            if (adapter.itemCount > 0) {
-                chatHistoryPresentation?.chatRecyclerView?.scrollToPosition(adapter.itemCount - 1)
+            chatHistoryPresentation?.let { pres ->
+                pres.scrollBarVisualizer.setMessages(ChatRepository.getAllMessages())
+                if (adapter.itemCount > 0) {
+                    pres.chatRecyclerView.scrollToPosition(adapter.itemCount - 1)
+                }
             }
         }
         startPresenceTracking()
@@ -449,6 +456,9 @@ class OnlineRoomSelectionActivity : AppCompatActivity() {
         if (!isSecondaryDisplayActive) {
             checkSecondaryDisplay()
         }
+        if (!isSecondaryDisplayActive) {
+            fitScreensToParent()
+        }
     }
 
     override fun onStop() {
@@ -456,7 +466,18 @@ class OnlineRoomSelectionActivity : AppCompatActivity() {
         if (isSecondaryDisplayActive) {
             onlineRoomPresentation?.setOnDismissListener(null)
             chatHistoryPresentation?.setOnDismissListener(null)
-            onSecondaryDisplayDisconnected()
+
+            chatHistoryPresentation?.dismiss()
+            chatHistoryPresentation = null
+            onlineRoomPresentation?.dismiss()
+            onlineRoomPresentation = null
+            presentationChatAdapter = null
+
+            wireRoomViewsFromBinding()
+            applyThemeColor()
+            updateSelection()
+
+            isSecondaryDisplayActive = false
         }
     }
 
@@ -592,6 +613,14 @@ class OnlineRoomSelectionActivity : AppCompatActivity() {
             })
             presentationChatAdapter = adapter
             applyStripedBackground(pres.chatHistoryBackground)
+
+            pres.scrollBarVisualizer.includeBanner = true
+            pres.scrollBarVisualizer.setMessages(ChatRepository.getAllMessages())
+            pres.chatRecyclerView.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                    updatePresentationScrollBarVisibleRange()
+                }
+            })
         } else {
             val pres = OnlineRoomSelectionPresentation(this, display)
             pres.onBackPressedCallback = { performAnimatedBack() }
@@ -910,8 +939,24 @@ class OnlineRoomSelectionActivity : AppCompatActivity() {
         binding.scrollBarVisualizer.setVisibleRange(first, last)
     }
 
+    private fun updatePresentationScrollBarVisibleRange() {
+        val pres = chatHistoryPresentation ?: return
+        val lm = pres.chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
+        val first = lm.findFirstVisibleItemPosition()
+        val last = lm.findLastVisibleItemPosition()
+        if (first == RecyclerView.NO_POSITION) return
+        pres.scrollBarVisualizer.setVisibleRange(first, last)
+    }
+
+    private fun activeChatRecyclerView(): RecyclerView =
+        if (isSecondaryDisplayActive && viewsSwapped)
+            chatHistoryPresentation?.chatRecyclerView ?: binding.chatRecyclerView
+        else
+            binding.chatRecyclerView
+
     private fun scrollChatUp() {
-        val lm = binding.chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
+        val rv = activeChatRecyclerView()
+        val lm = rv.layoutManager as? LinearLayoutManager ?: return
         val lastVisible = lm.findLastVisibleItemPosition()
         if (lastVisible > 0) {
             val scroller = object : LinearSmoothScroller(this) {
@@ -926,9 +971,10 @@ class OnlineRoomSelectionActivity : AppCompatActivity() {
     }
 
     private fun scrollChatDown() {
-        val lm = binding.chatRecyclerView.layoutManager as? LinearLayoutManager ?: return
+        val rv = activeChatRecyclerView()
+        val lm = rv.layoutManager as? LinearLayoutManager ?: return
         val lastVisible = lm.findLastVisibleItemPosition()
-        if (lastVisible < chatAdapter.itemCount - 1) {
+        if (lastVisible < (rv.adapter?.itemCount ?: 0) - 1) {
             val scroller = object : LinearSmoothScroller(this) {
                 override fun getVerticalSnapPreference(): Int = SNAP_TO_END
             }
