@@ -444,6 +444,22 @@ class OnlineRoomSelectionActivity : AppCompatActivity() {
         binding.root.post { fitScreensToParent() }
     }
 
+    override fun onStart() {
+        super.onStart()
+        if (!isSecondaryDisplayActive) {
+            checkSecondaryDisplay()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (isSecondaryDisplayActive) {
+            onlineRoomPresentation?.setOnDismissListener(null)
+            chatHistoryPresentation?.setOnDismissListener(null)
+            onSecondaryDisplayDisconnected()
+        }
+    }
+
     override fun onPause() {
         super.onPause()
         ChatRepository.removeListener(chatListener)
@@ -555,8 +571,12 @@ class OnlineRoomSelectionActivity : AppCompatActivity() {
     private fun onSecondaryDisplayConnected(display: Display) {
         if (viewsSwapped) {
             val pres = ChatHistoryPresentation(this, display)
+            pres.onBackPressedCallback = { performAnimatedBack() }
             pres.setOnDismissListener {
-                if (isSecondaryDisplayActive) onSecondaryDisplayDisconnected()
+                if (isSecondaryDisplayActive) {
+                    onSecondaryDisplayDisconnected()
+                    finish()
+                }
             }
             pres.show()
             chatHistoryPresentation = pres
@@ -574,8 +594,12 @@ class OnlineRoomSelectionActivity : AppCompatActivity() {
             applyStripedBackground(pres.chatHistoryBackground)
         } else {
             val pres = OnlineRoomSelectionPresentation(this, display)
+            pres.onBackPressedCallback = { performAnimatedBack() }
             pres.setOnDismissListener {
-                if (isSecondaryDisplayActive) onSecondaryDisplayDisconnected()
+                if (isSecondaryDisplayActive) {
+                    onSecondaryDisplayDisconnected()
+                    finish()
+                }
             }
             pres.show()
             onlineRoomPresentation = pres
